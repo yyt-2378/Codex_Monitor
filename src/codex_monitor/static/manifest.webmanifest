@@ -1,0 +1,13 @@
+{
+  "name": "Codex Monitor 控制中心",
+  "short_name": "Codex Monitor",
+  "description": "任务进度、执行节点与人工审批控制中心",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07110f",
+  "theme_color": "#07110f",
+  "icons": [
+    {"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

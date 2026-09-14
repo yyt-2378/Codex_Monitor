@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN" data-base-path="">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07110f">
+  <meta name="description" content="Codex Monitor 任务进度、执行节点与人工审批控制中心">
+  <title>Codex Monitor 控制中心</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css?v=1">
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-atmosphere" aria-hidden="true"></div>
+    <main class="login-card">
+      <div class="brand-lockup">
+        <span class="brand-orbit" aria-hidden="true"><i></i></span>
+        <div><strong>CODEX <span>MONITOR</span></strong><small>CONTROL CENTER</small></div>
+      </div>
+      <div class="login-copy">
+        <p class="eyebrow">PRIVATE OPERATIONS</p>
+        <h1>登录任务控制中心</h1>
+        <p>查看电脑端 Codex 的任务进度，并审批需要人工确认的操作。</p>
+      </div>
+      <form id="loginForm" class="login-form">
+        <label>管理员账号<input id="loginUsername" name="username" autocomplete="username" required maxlength="80"></label>
+        <label>密码<input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="512"></label>
+        <p id="loginError" class="form-error" role="alert"></p>
+        <button class="button primary wide" type="submit">安全登录</button>
+      </form>
+      <p class="login-footnote"><span></span>独立账号体系 · 加密会话 · 操作留痕</p>
+    </main>
+  </section>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="brand-lockup compact">
+        <span class="brand-orbit" aria-hidden="true"><i></i></span>
+        <div><strong>CODEX <span>MONITOR</span></strong><small>CONTROL CENTER</small></div>
+      </div>
+      <nav class="side-nav" aria-label="主导航">
+        <button data-view="overview" class="nav-item active"><span class="nav-icon">⌁</span><span>总览</span></button>
+        <button data-view="tasks" class="nav-item"><span class="nav-icon">▤</span><span>任务</span></button>
+        <button data-view="sessions" class="nav-item"><span class="nav-icon">◉</span><span>Codex 会话</span></button>
+        <button data-view="approvals" class="nav-item"><span class="nav-icon">◇</span><span>审批</span><b id="approvalBadge" hidden>0</b></button>
+        <button data-view="nodes" class="nav-item"><span class="nav-icon">⌘</span><span>执行节点</span></button>
+        <button data-view="users" data-admin-only class="nav-item"><span class="nav-icon">◎</span><span>成员权限</span></button>
+        <button data-view="audit" data-admin-only class="nav-item"><span class="nav-icon">≡</span><span>审计记录</span></button>
+      </nav>
+      <div class="sidebar-user">
+        <span id="userAvatar" class="avatar">管</span>
+        <div><strong id="userName">管理员</strong><small id="userRole">ADMIN</small></div>
+        <button id="logoutButton" class="icon-button" title="退出登录" aria-label="退出登录">↗</button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LIVE OPERATIONS</p>
+          <h1 id="viewTitle">任务总览</h1>
+        </div>
+        <div class="top-actions">
+          <div id="connectionState" class="connection-pill"><span></span>正在同步</div>
+          <button id="passwordButton" class="icon-button security-button" title="修改我的密码" aria-label="修改我的密码">◎</button>
+          <button id="newTaskButton" class="button primary">＋ 新建任务</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section id="view-overview" class="view active">
+          <div class="stat-grid">
+            <article class="stat-card accent"><span>运行中任务</span><strong id="statActive">0</strong><small>正在排队或执行</small></article>
+            <article class="stat-card warning"><span>等待审批</span><strong id="statPending">0</strong><small>需要管理员决定</small></article>
+            <article class="stat-card"><span>在线节点</span><strong id="statNodes">0</strong><small>已建立加密连接</small></article>
+            <article class="stat-card"><span>最近活跃会话</span><strong id="statSessions">0</strong><small>本机 Codex 最近 3 分钟</small></article>
+          </div>
+          <div class="two-column">
+            <section class="panel">
+              <div class="panel-head"><div><p class="eyebrow">TASK STREAM</p><h2>当前任务</h2></div><button class="text-button" data-go="tasks">查看全部</button></div>
+              <div id="overviewTasks" class="stack-list"></div>
+            </section>
+            <section class="panel approval-panel">
+              <div class="panel-head"><div><p class="eyebrow">HUMAN GATE</p><h2>待审批</h2></div><button class="text-button" data-go="approvals">处理队列</button></div>
+              <div id="overviewApprovals" class="stack-list"></div>
+            </section>
+          </div>
+          <section class="panel session-panel">
+            <div class="panel-head"><div><p class="eyebrow">LOCAL CODEX</p><h2>本机 Codex 活动</h2></div><button class="text-button" data-go="sessions">查看会话</button></div>
+            <div id="overviewSessions" class="stack-list"></div>
+          </section>
+        </section>
+
+        <section id="view-tasks" class="view">
+          <div class="section-toolbar">
+            <div class="filter-row" id="taskFilters">
+              <button data-filter="all" class="filter active">全部</button>
+              <button data-filter="active" class="filter">进行中</button>
+              <button data-filter="waiting_approval" class="filter">待审批</button>
+              <button data-filter="completed" class="filter">已完成</button>
+              <button data-filter="failed" class="filter">异常</button>
+            </div>
+          </div>
+          <div id="taskList" class="task-list"></div>
+        </section>
+
+        <section id="view-sessions" class="view">
+          <div class="section-intro"><div><p class="eyebrow">LOCAL ACCOUNT THREADS</p><h2>本机 Codex 会话</h2></div><p>自动同步这台电脑上同一 Codex 登录的最近会话。标记“最近活动”表示本机记录刚刚更新；只有从本控制中心启动的受控任务才能在手机上审批。</p></div>
+          <div id="codexSessionList" class="session-list"></div>
+        </section>
+
+        <section id="view-approvals" class="view">
+          <div class="section-intro"><div><p class="eyebrow">DECISION QUEUE</p><h2>人工审批</h2></div><p>审批前请核对执行节点、工作目录、命令和风险。默认只批准当前一次。</p></div>
+          <div id="approvalList" class="approval-list"></div>
+        </section>
+
+        <section id="view-nodes" class="view">
+          <div class="section-intro"><div><p class="eyebrow">EXECUTION HOSTS</p><h2>执行节点</h2></div><p>节点只需主动连接控制中心，电脑无需开放公网端口。</p></div>
+          <div id="nodeList" class="node-grid"></div>
+        </section>
+
+        <section id="view-users" class="view" data-admin-only>
+          <div class="section-toolbar"><div><p class="eyebrow">ACCESS CONTROL</p><h2>成员与权限</h2></div><button id="newUserButton" class="button secondary">＋ 添加成员</button></div>
+          <div class="role-legend"><span><b>管理员</b> 全部权限</span><span><b>操作员</b> 创建任务与审批</span><span><b>观察员</b> 仅查看</span></div>
+          <div id="userList" class="table-wrap"></div>
+        </section>
+
+        <section id="view-audit" class="view" data-admin-only>
+          <div class="section-intro"><div><p class="eyebrow">AUDIT TRAIL</p><h2>审计记录</h2></div><p>登录、任务、审批和权限变更均在服务器端记录。</p></div>
+          <div id="auditList" class="audit-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="移动端导航">
+      <button data-view="overview" class="active"><span>⌁</span>总览</button>
+      <button data-view="tasks"><span>▤</span>任务</button>
+      <button data-view="approvals"><span>◇</span>审批<i id="mobileApprovalBadge" hidden>0</i></button>
+      <button data-view="sessions"><span>◉</span>会话</button>
+    </nav>
+  </div>
+
+  <dialog id="sessionDialog" class="modal wide-modal">
+    <div class="detail-dialog-shell">
+      <div class="modal-head">
+        <div><p class="eyebrow">CODEX THREAD</p><h2 id="sessionDialogTitle">会话详情</h2></div>
+        <button type="button" data-close-dialog class="icon-button" aria-label="关闭">×</button>
+      </div>
+      <div id="sessionDialogMeta" class="detail-meta"></div>
+      <div class="detail-toolbar">
+        <span id="sessionLiveState" class="session-state">正在读取</span>
+        <button id="refreshSessionButton" type="button" class="button ghost">刷新消息</button>
+      </div>
+      <p id="sessionDetailError" class="form-error" role="alert"></p>
+      <div id="sessionTranscript" class="session-transcript" aria-live="polite"></div>
+      <form id="sessionPromptForm" class="session-composer">
+        <p id="sessionControlHint" class="control-hint"></p>
+        <label>继续向这个会话下指令
+          <textarea name="prompt" required maxlength="30000" rows="4" placeholder="例如：继续完成刚才的任务，运行测试后向我汇报……"></textarea>
+        </label>
+        <p id="sessionPromptError" class="form-error" role="alert"></p>
+        <div class="modal-actions"><button type="button" data-close-dialog class="button ghost">关闭</button><button id="sessionPromptSubmit" type="submit" class="button primary">发送并跟踪进度</button></div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="taskDetailDialog" class="modal wide-modal">
+    <div class="detail-dialog-shell">
+      <div class="modal-head">
+        <div><p class="eyebrow">TASK PROGRESS</p><h2 id="taskDetailTitle">任务详情</h2></div>
+        <button type="button" data-close-dialog class="icon-button" aria-label="关闭">×</button>
+      </div>
+      <div id="taskDetailSummary"></div>
+      <div id="taskDetailEvents" class="detail-events"></div>
+      <div class="modal-actions"><button id="taskDetailApprovals" type="button" class="button ghost" hidden>前往处理审批</button><button type="button" data-close-dialog class="button primary">关闭</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="taskDialog" class="modal">
+    <form id="taskForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">NEW CODEX TASK</p><h2>下发新任务</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="关闭">×</button></div>
+      <label>任务名称<input name="title" required maxlength="160" placeholder="例如：整理实验数据并生成报告"></label>
+      <label>执行节点<select name="node_id" id="taskNode" required></select></label>
+      <label>工作目录（可选）<input name="cwd" maxlength="1000" placeholder="留空则使用节点默认目录"></label>
+      <label>任务说明<textarea name="prompt" required maxlength="30000" rows="7" placeholder="清楚描述需要 Codex 完成的工作……"></textarea></label>
+      <p id="taskError" class="form-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" data-close-dialog class="button ghost">取消</button><button id="taskSubmit" type="submit" class="button primary">发送到节点</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="userDialog" class="modal">
+    <form id="userForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">ACCESS CONTROL</p><h2>添加成员</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="关闭">×</button></div>
+      <label>登录账号<input name="username" required minlength="3" maxlength="80" pattern="[A-Za-z0-9_.-]+" autocomplete="off"></label>
+      <label>显示名称<input name="display_name" required maxlength="80" autocomplete="off"></label>
+      <label>初始密码<input name="password" type="password" required minlength="12" maxlength="512" autocomplete="new-password"><small>至少 12 个字符</small></label>
+      <label>角色<select name="role"><option value="viewer">观察员 · 仅查看</option><option value="operator">操作员 · 可执行和审批</option><option value="admin">管理员 · 全部权限</option></select></label>
+      <p id="userError" class="form-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" data-close-dialog class="button ghost">取消</button><button type="submit" class="button primary">创建成员</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="passwordDialog" class="modal compact-modal">
+    <form id="passwordForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">ACCOUNT SECURITY</p><h2>修改我的密码</h2></div><button type="button" data-close-dialog class="icon-button" aria-label="关闭">×</button></div>
+      <label>当前密码<input name="current_password" type="password" required maxlength="512" autocomplete="current-password"></label>
+      <label>新密码<input name="new_password" type="password" required minlength="12" maxlength="512" autocomplete="new-password"><small>至少 12 个字符，请勿与其他网站共用</small></label>
+      <label>确认新密码<input name="confirm_password" type="password" required minlength="12" maxlength="512" autocomplete="new-password"></label>
+      <p id="passwordError" class="form-error" role="alert"></p>
+      <div class="modal-actions"><button type="button" data-close-dialog class="button ghost">取消</button><button type="submit" class="button primary">更新密码</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js?v=1" defer></script>
+</body>
+</html>
